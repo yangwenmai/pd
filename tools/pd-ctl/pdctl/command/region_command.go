@@ -15,6 +15,7 @@ package command
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -200,11 +201,12 @@ func showRegionTopSizeCommandFunc(cmd *cobra.Command, args []string) {
 // NewRegionWithKeyCommand return a region with key subcommand of regionCmd
 func NewRegionWithKeyCommand() *cobra.Command {
 	r := &cobra.Command{
-		Use:   "key [--format=raw|pb|proto|protobuf] <key>",
+		Use:   "key [--format=raw|pb|proto|protobuf|base64] <key>",
 		Short: "show the region with key",
 		Run:   showRegionWithTableCommandFunc,
 	}
-	r.Flags().String("format", "pb", "the key format")
+	r.Flags().String("format", "base64", "the key format")
+	r.Flags().String("debugkey", "", "Show debug output")
 	return r
 }
 
@@ -223,6 +225,13 @@ func showRegionWithTableCommandFunc(cmd *cobra.Command, args []string) {
 	switch format {
 	case "raw":
 		key = args[0]
+	case "base64":
+		key1, err := base64.StdEncoding.DecodeString(args[0])
+		if err != nil {
+			fmt.Println("Error: ", err)
+			return
+		}
+		key = string(key1)
 	case "pb", "proto", "protobuf":
 		key, err = decodeProtobufText(args[0])
 		if err != nil {
@@ -233,6 +242,11 @@ func showRegionWithTableCommandFunc(cmd *cobra.Command, args []string) {
 		fmt.Println("Error: unknown format")
 		return
 	}
+
+	if cmd.Flags().Lookup("debugkey").Value.String() == "key" {
+		fmt.Printf("Key: %q\n", key)
+	}
+
 	// TODO: Deal with path escaped
 	prefix := regionKeyPrefix + "/" + key
 	r, err := doRequest(cmd, prefix, http.MethodGet)
