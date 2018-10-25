@@ -204,7 +204,7 @@ func NewRegionWithKeyCommand() *cobra.Command {
 		Short: "show the region with key",
 		Run:   showRegionWithTableCommandFunc,
 	}
-	r.Flags().String("format", "raw", "the key format")
+	r.Flags().String("format", "pb", "the key format")
 	return r
 }
 
@@ -274,7 +274,7 @@ func NewRegionsWithStartKeyCommand() *cobra.Command {
 		Run:   showRegionsFromStartKeyCommandFunc,
 	}
 
-	r.Flags().String("format", "raw", "the key format")
+	r.Flags().String("format", "pb", "the key format")
 	return r
 }
 
