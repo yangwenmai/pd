@@ -128,19 +128,19 @@ func (c *coordinator) patrolRegions() {
 func (c *coordinator) checkRegion(region *core.RegionInfo) bool {
 	// If PD has restarted, it need to check learners added before and promote them.
 	// Don't check isRaftLearnerEnabled cause it may be disable learner feature but still some learners to promote.
-	for _, p := range region.GetLearners() {
-		if region.GetPendingLearner(p.GetId()) != nil {
-			continue
-		}
-		step := schedule.PromoteLearner{
-			ToStore: p.GetStoreId(),
-			PeerID:  p.GetId(),
-		}
-		op := schedule.NewOperator("promoteLearner", region.GetID(), region.GetRegionEpoch(), schedule.OpRegion, step)
-		if c.opController.AddOperator(op) {
-			return true
-		}
-	}
+	// for _, p := range region.GetLearners() {
+	// 	if region.GetPendingLearner(p.GetId()) != nil {
+	// 		continue
+	// 	}
+	// 	step := schedule.PromoteLearner{
+	// 		ToStore: p.GetStoreId(),
+	// 		PeerID:  p.GetId(),
+	// 	}
+	// 	op := schedule.NewOperator("promoteLearner", region.GetID(), region.GetRegionEpoch(), schedule.OpRegion, step)
+	// 	if c.opController.AddOperator(op) {
+	// 		return true
+	// 	}
+	// }
 
 	limiter := c.opController.Limiter
 	if limiter.OperatorCount(schedule.OpLeader) < c.cluster.GetLeaderScheduleLimit() &&
