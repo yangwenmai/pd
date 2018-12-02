@@ -349,8 +349,8 @@ func (h *balanceHotRegionsScheduler) balanceByLeader(cluster schedule.Cluster, s
 			continue
 		}
 		destStoreID, mstr := h.selectDestStore(candidateStoreIDs, rs.FlowBytes, srcStoreID, storesStat)
-		postJSON("", mstr, srcStoreID, destStoreID)
 		if destStoreID == 0 {
+			postJSON("", mstr, srcStoreID, destStoreID)
 			continue
 		}
 
@@ -367,6 +367,7 @@ func (h *balanceHotRegionsScheduler) balanceByLeader(cluster schedule.Cluster, s
 
 func postJSON(s string, ms []Feature, srcStoreID, destStoreID uint64) {
 	if s == "" || ms == nil {
+		log.Println("[HOT] step is empty, ms is nil ")
 		return
 	}
 	b, err := json.Marshal(ms)
@@ -391,7 +392,7 @@ func postJSON(s string, ms []Feature, srcStoreID, destStoreID uint64) {
 var reqURL = "http://localhost:8000/model/pd"
 
 func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) {
-	logStr := "[HT]method:" + method + ", URL:>" + reqURL
+	logStr := "[HOT] method:" + method + ", URL:>" + reqURL
 
 	req, err := http.NewRequest(method, reqURL, strings.NewReader(jsonStr))
 	req.Header.Set("Content-Type", "application/json")
@@ -399,14 +400,15 @@ func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) {
 	resp, err := http.DefaultClient.Do(req)
 
 	if resp == nil || err != nil {
-		log.Println("[HOT] http request error or resp is nil, ", err)
+		log.Println(logStr+", http request error or resp is nil, ", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	headStr := fmt.Sprintf("%v", resp.Header)
-	logStr += ", response Status:" + resp.Status + ", response Headers:" + headStr + ", response Body:" + string(body)
+	logStr += ", response Status:" + resp.Status + ", response Headers:"
+	+headStr + ", response Body:" + string(body)
 	if strings.Contains(string(body), "predictions") {
 		var maxProbability float64
 		var v map[string][]interface{}
@@ -420,13 +422,12 @@ func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) {
 			}
 		}
 		logStr += "\nsuggest step: " + ke + ", maxProbability:" + fmt.Sprintf("%.15f", maxProbability)
-		// suggest step: transfer leader from store 7 to store 2, maxProbability:0.432223661517613
 		srcStoreIDD, _ := strconv.Atoi(ke[27:28])
 		destStoreIDD, _ := strconv.Atoi(ke[38:39])
 		if srcStoreID == uint64(srcStoreIDD) && destStoreID == uint64(destStoreIDD) {
-			logStr += "-[HIT]"
+			logStr += " - [HIT]"
 		} else {
-			logStr += "-[MISS], srcStoreID:" + strconv.Itoa(int(srcStoreID)) + ",destStoreID:" + strconv.Itoa(int(destStoreID))
+			logStr += " - [MISS], srcStoreID:" + strconv.Itoa(int(srcStoreID)) + ", destStoreID:" + strconv.Itoa(int(destStoreID))
 		}
 	}
 	log.Println(logStr)
