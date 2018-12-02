@@ -485,9 +485,11 @@ func (h *balanceHotRegionsScheduler) selectDestStore(candidateStoreIDs []uint64,
 	)
 	var strategies []Feature
 	for _, storeID := range candidateStoreIDs {
+		destStoreIDs = append(destStoreIDs, storeID)
+	}
+	for _, storeID := range candidateStoreIDs {
 		if s, ok := storesStat[storeID]; ok {
 			if srcHotRegionsCount-s.RegionsStat.Len() > 1 && minRegionsCount > s.RegionsStat.Len() {
-				destStoreIDs = append(destStoreIDs, storeID)
 				destStoreID = storeID
 				minFlowBytes = s.TotalFlowBytes
 				minRegionsCount = s.RegionsStat.Len()
@@ -508,7 +510,6 @@ func (h *balanceHotRegionsScheduler) selectDestStore(candidateStoreIDs []uint64,
 			if minRegionsCount == s.RegionsStat.Len() && minFlowBytes > s.TotalFlowBytes &&
 				uint64(float64(srcFlowBytes)*hotRegionScheduleFactor) > s.TotalFlowBytes+2*regionFlowBytes {
 				minFlowBytes = s.TotalFlowBytes
-				destStoreIDs = append(destStoreIDs, storeID)
 				destStoreID = storeID
 				str1 := fmt.Sprintf("minFlowBytes%d", storeID)
 				str2 := fmt.Sprintf("srcFlowBytes%d", storeID)
@@ -524,7 +525,6 @@ func (h *balanceHotRegionsScheduler) selectDestStore(candidateStoreIDs []uint64,
 				strategies = append(strategies, strategy3)
 			}
 		} else {
-			destStoreIDs = append(destStoreIDs, storeID)
 			destStoreID = storeID
 			return destStoreID, strategies, destStoreIDs
 		}
