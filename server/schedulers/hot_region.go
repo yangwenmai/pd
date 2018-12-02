@@ -342,8 +342,8 @@ func (h *balanceHotRegionsScheduler) balanceByLeader(cluster schedule.Cluster, s
 			continue
 		}
 		destStoreID, mstr := h.selectDestStore(candidateStoreIDs, rs.FlowBytes, srcStoreID, storesStat)
-		postJSON("", mstr, srcStoreID, destStoreID, srcRegion)
 		if destStoreID == 0 {
+			postJSON("", mstr, srcStoreID, destStoreID, srcRegion)
 			continue
 		}
 
@@ -360,11 +360,12 @@ func (h *balanceHotRegionsScheduler) balanceByLeader(cluster schedule.Cluster, s
 
 func postJSON(s string, ms []Feature, srcStoreID, destStoreID uint64, srcRegion *core.RegionInfo) *metapb.Peer {
 	if s == "" || ms == nil {
+		log.Println("[HOT] step is empty, ms is nil")
 		return nil
 	}
 	b, err := json.Marshal(ms)
 	if err != nil {
-		log.Println(err)
+		log.Println("[HOT] json marshal is err: ", err)
 	}
 
 	step := "[" + "\"" + s + "\"" + ","
@@ -390,7 +391,7 @@ func postJSON(s string, ms []Feature, srcStoreID, destStoreID uint64, srcRegion 
 var reqURL = "http://localhost:8000/model/pd"
 
 func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) uint64 {
-	logStr := "[HT]method:" + method + ", URL:>" + reqURL
+	logStr := "[HOT] method:" + method + ", URL:>" + reqURL
 
 	req, err := http.NewRequest(method, reqURL, strings.NewReader(jsonStr))
 	req.Header.Set("Content-Type", "application/json")
@@ -398,7 +399,7 @@ func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) uint64 {
 	resp, err := http.DefaultClient.Do(req)
 
 	if resp == nil || err != nil {
-		log.Println("[HOT] http request error or resp is nil, ", err)
+		log.Println(logStr+", http request error or resp is nil, ", err)
 		return 0
 	}
 	defer resp.Body.Close()
@@ -424,9 +425,9 @@ func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) uint64 {
 		srcStoreIDD, _ := strconv.Atoi(ke[27:28])
 		destStoreIDD, _ = strconv.Atoi(ke[38:39])
 		if srcStoreID == uint64(srcStoreIDD) && destStoreID == uint64(destStoreIDD) {
-			logStr += "-[HIT]"
+			logStr += " - [HIT]"
 		} else {
-			logStr += "-[MISS], srcStoreID:" + strconv.Itoa(int(srcStoreID)) + ",destStoreID:" + strconv.Itoa(int(destStoreID))
+			logStr += " - [MISS], srcStoreID:" + strconv.Itoa(int(srcStoreID)) + ", destStoreID:" + strconv.Itoa(int(destStoreID))
 		}
 	}
 	log.Println(logStr)
