@@ -387,7 +387,7 @@ func postJSON(s string, ms []Feature, srcStoreID, destStoreID uint64, srcRegion 
 	return nil
 }
 
-var reqURL = "http://106.75.11.4:8000/model/xxx1"
+var reqURL = "http://localhost:8000/model/pd"
 
 func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) uint64 {
 	logStr := "[HT]method:" + method + ", URL:>" + reqURL
