@@ -342,7 +342,7 @@ func (h *balanceHotRegionsScheduler) balanceByLeader(cluster schedule.Cluster, s
 			continue
 		}
 		destStoreID, mstr := h.selectDestStore(candidateStoreIDs, rs.FlowBytes, srcStoreID, storesStat)
-		postJSON("", mstr, srcStoreID, destStoreID)
+		postJSON("", mstr, srcStoreID, destStoreID, srcRegion)
 		if destStoreID == 0 {
 			continue
 		}
@@ -351,16 +351,16 @@ func (h *balanceHotRegionsScheduler) balanceByLeader(cluster schedule.Cluster, s
 		if destPeer != nil {
 			h.adjustBalanceLimit(srcStoreID, storesStat)
 			step := schedule.TransferLeader{FromStore: srcRegion.GetLeader().GetStoreId(), ToStore: destPeer.GetStoreId()}
-			postJSON(step.String(), mstr, srcStoreID, destStoreID)
-			return srcRegion, destPeer
+			ddPeer := postJSON(step.String(), mstr, srcStoreID, destStoreID, srcRegion)
+			return srcRegion, ddPeer
 		}
 	}
 	return nil, nil
 }
 
-func postJSON(s string, ms []Feature, srcStoreID, destStoreID uint64) {
+func postJSON(s string, ms []Feature, srcStoreID, destStoreID uint64, srcRegion *core.RegionInfo) *metapb.Peer {
 	if s == "" || ms == nil {
-		return
+		return nil
 	}
 	b, err := json.Marshal(ms)
 	if err != nil {
@@ -378,12 +378,18 @@ func postJSON(s string, ms []Feature, srcStoreID, destStoreID uint64) {
 
 	// POST model
 	gstr := "{\"features\": [" + string(b) + "]}"
-	httpClient("POST", gstr, srcStoreID, destStoreID)
+	dsID := httpClient("POST", gstr, srcStoreID, destStoreID)
+
+	destPeer := srcRegion.GetStoreVoter(dsID)
+	if destPeer != nil {
+		return destPeer
+	}
+	return nil
 }
 
 var reqURL = "http://106.75.11.4:8000/model/xxx1"
 
-func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) {
+func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) uint64 {
 	logStr := "[HT]method:" + method + ", URL:>" + reqURL
 
 	req, err := http.NewRequest(method, reqURL, strings.NewReader(jsonStr))
@@ -393,13 +399,14 @@ func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) {
 
 	if resp == nil || err != nil {
 		log.Println("[HOT] http request error or resp is nil, ", err)
-		return
+		return 0
 	}
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	headStr := fmt.Sprintf("%v", resp.Header)
 	logStr += ", response Status:" + resp.Status + ", response Headers:" + headStr + ", response Body:" + string(body)
+	var destStoreIDD int
 	if strings.Contains(string(body), "predictions") {
 		var maxProbability float64
 		var v map[string][]interface{}
@@ -415,7 +422,7 @@ func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) {
 		logStr += "\nsuggest step: " + ke + ", maxProbability:" + fmt.Sprintf("%.15f", maxProbability)
 		// suggest step: transfer leader from store 7 to store 2, maxProbability:0.432223661517613
 		srcStoreIDD, _ := strconv.Atoi(ke[27:28])
-		destStoreIDD, _ := strconv.Atoi(ke[38:39])
+		destStoreIDD, _ = strconv.Atoi(ke[38:39])
 		if srcStoreID == uint64(srcStoreIDD) && destStoreID == uint64(destStoreIDD) {
 			logStr += "-[HIT]"
 		} else {
@@ -423,6 +430,7 @@ func httpClient(method, jsonStr string, srcStoreID, destStoreID uint64) {
 		}
 	}
 	log.Println(logStr)
+	return uint64(destStoreIDD)
 }
 
 // Select the store to move hot regions from.
